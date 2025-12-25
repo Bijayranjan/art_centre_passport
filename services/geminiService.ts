@@ -18,43 +18,48 @@ const processBackground = async (
   // Clean base64 string
   const cleanBase64 = imageBase64.replace(/^data:image\/(png|jpeg|jpg|webp);base64,/, "");
 
-  const colorName = color === BackgroundColor.WHITE ? "pure white" : "saturated blue";
+  // USE DESCRIPTIVE NAMES ONLY. 
+  // DO NOT pass the raw hex string (e.g. #2296F3) into the text prompt, 
+  // as the model often transcribes it onto the person's shoulder or background.
+  const colorDescription = color === BackgroundColor.WHITE 
+    ? "PURE UNIFORM STUDIO WHITE" 
+    : "PROFESSIONAL DEEP SATURATED ROYAL BLUE";
   
   let clothingPrompt = "";
   if (clothing !== ClothingOption.NONE) {
       let outfitDesc = "";
       switch (clothing) {
           case ClothingOption.MALE_BLAZER:
-              outfitDesc = "a professional black suit jacket with a white dress shirt and tie";
+              outfitDesc = "a professional black suit jacket with a crisp white dress shirt and a clean tie";
               break;
           case ClothingOption.FEMALE_BLAZER:
-              outfitDesc = "a professional black formal blazer over a simple top";
+              outfitDesc = "a sharp professional black formal blazer over a white business top";
               break;
           case ClothingOption.MALE_SHIRT:
-              outfitDesc = "a crisp white formal button-down dress shirt";
+              outfitDesc = "a crisp, perfectly ironed white formal button-down dress shirt";
               break;
           case ClothingOption.FEMALE_SHIRT:
-              outfitDesc = "a professional white formal business shirt";
+              outfitDesc = "a clean, professional white formal business shirt";
               break;
       }
-      clothingPrompt = `3. CLOTHING: Replace current clothes with ${outfitDesc}. Ensure a realistic fit and natural neck transition.`;
+      clothingPrompt = `3. CLOTHING: Change the current outfit to ${outfitDesc}. The clothing must look realistic and properly aligned to the body.`;
   } else {
-      clothingPrompt = "3. CLOTHING: Keep original clothes exactly as they are.";
+      clothingPrompt = "3. CLOTHING: Preserve the original clothing exactly as it is.";
   }
 
   const prompt = `
-    Task: Create a professional passport photo.
+    TASK: Convert this photo into a standard professional passport photograph.
     
-    INSTRUCTIONS:
-    1. KEEP THE PERSON'S FACE, HAIR, AND IDENTITY EXACTLY AS IS.
-    2. BACKGROUND: Replace the background with a SOLID, UNIFORM ${colorName} background. Use the color ${color}.
+    CRITICAL INSTRUCTIONS:
+    1. SUBJECT: Keep the person's face and hair exactly as they are. Do not retouch features.
+    2. BACKGROUND: Replace the background with a flat, SOLID ${colorDescription}. No gradients, no textures.
     ${clothingPrompt}
-    4. Ensure clean, sharp edges between the person and the background.
     
-    STRICT PROHIBITION:
-    - DO NOT include any text, labels, hex codes, or watermarks on the image.
-    - DO NOT write "${color}" or any numbers on the result.
-    - THE OUTPUT MUST BE A CLEAN PHOTOGRAPH ONLY.
+    STRICT PROHIBITIONS (MANDATORY):
+    - DO NOT include any text, letters, numbers, or hex codes (like #2296F3) on the image.
+    - DO NOT add any watermarks, labels, or graphical overlays.
+    - DO NOT write the name of the color on the image.
+    - The output must be a CLEAN, PURE PHOTOGRAPH ONLY.
   `;
 
   try {
@@ -84,7 +89,7 @@ const processBackground = async (
       }
     }
 
-    throw new Error("The AI returned a response but no image was found.");
+    throw new Error("AI returned a response but no image data was found.");
   } catch (error: any) {
     console.error(`Gemini API Error (Attempt ${retryCount + 1}):`, error);
     
@@ -94,7 +99,7 @@ const processBackground = async (
       return processBackground(imageBase64, color, clothing, retryCount + 1);
     }
 
-    throw new Error(error.message || "An unexpected error occurred during AI processing.");
+    throw new Error(error.message || "AI processing failed.");
   }
 };
 
