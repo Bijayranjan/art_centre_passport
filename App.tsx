@@ -6,7 +6,7 @@ import CurveAdjustment from './components/CurveAdjustment';
 import { AppState, BackgroundColor, ClothingOption, CurveSettings } from './types';
 import { processBackground } from './services/geminiService';
 import { generatePassportSheet, applyCurves, createPreviewImage } from './utils/canvasUtils';
-import { Download, RefreshCw, Wand2, ArrowLeft, AlertCircle, Shirt, User, Briefcase, Minus, LayoutGrid, Image as ImageIcon } from 'lucide-react';
+import { Download, RefreshCw, Wand2, ArrowLeft, AlertCircle, Shirt, User, Briefcase, Minus, LayoutGrid, Image as ImageIcon, Lock, Mail, Eye, EyeOff, LogOut } from 'lucide-react';
 
 const DEFAULT_CURVES: CurveSettings = {
   all: [{ x: 0, y: 0 }, { x: 255, y: 255 }],
@@ -16,6 +16,16 @@ const DEFAULT_CURVES: CurveSettings = {
 };
 
 const App = () => {
+  // Auth State
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [loginEmail, setLoginEmail] = useState('');
+  const [loginPassword, setLoginPassword] = useState('');
+  const [staySignedIn, setStaySignedIn] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [loginError, setLoginError] = useState(false);
+  const [isAuthChecking, setIsAuthChecking] = useState(true);
+
+  // App State
   const [state, setState] = useState<AppState>(AppState.UPLOAD);
   const [originalImage, setOriginalImage] = useState<string | null>(null);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
@@ -30,6 +40,37 @@ const App = () => {
   const [error, setError] = useState<string | null>(null);
 
   const previewUpdateTimeout = useRef<number | null>(null);
+
+  // Check for existing session
+  useEffect(() => {
+    const session = localStorage.getItem('passport_ai_session');
+    if (session === 'authenticated') {
+      setIsAuthenticated(true);
+    }
+    setIsAuthChecking(false);
+  }, []);
+
+  const handleLogin = (e: React.FormEvent) => {
+    e.preventDefault();
+    const VALID_EMAIL = 'artcentrelive@gmail.com';
+    const VALID_PASS = 'gpcentre.art';
+
+    if (loginEmail === VALID_EMAIL && loginPassword === VALID_PASS) {
+      setIsAuthenticated(true);
+      if (staySignedIn) {
+        localStorage.setItem('passport_ai_session', 'authenticated');
+      }
+      setLoginError(false);
+    } else {
+      setLoginError(true);
+    }
+  };
+
+  const handleLogout = () => {
+    setIsAuthenticated(false);
+    localStorage.removeItem('passport_ai_session');
+    handleReset();
+  };
 
   const handleImageSelected = async (base64: string) => {
     setOriginalImage(base64);
@@ -56,7 +97,7 @@ const App = () => {
 
   // Live Preview Logic for Color Grading
   useEffect(() => {
-    if (state !== AppState.PROCESS || !croppedImage) return;
+    if (state !== AppState.PROCESS || !croppedImage || !isAuthenticated) return;
 
     if (previewUpdateTimeout.current) {
       window.clearTimeout(previewUpdateTimeout.current);
@@ -69,12 +110,12 @@ const App = () => {
       } catch (err) {
         console.error("Live preview failed:", err);
       }
-    }, 50); // Small debounce for performance
+    }, 50);
 
     return () => {
       if (previewUpdateTimeout.current) window.clearTimeout(previewUpdateTimeout.current);
     };
-  }, [curveSettings, croppedImage, state]);
+  }, [curveSettings, croppedImage, state, isAuthenticated]);
 
   const handleProcess = async () => {
     if (!croppedImage) return;
@@ -82,12 +123,8 @@ const App = () => {
     setIsProcessing(true);
     setError(null);
     try {
-      // 1. Apply Tone Curves first to get the "Enhanced" base (at full cropped quality)
       const enhancedImage = await applyCurves(croppedImage, curveSettings);
-      
       let finalPhoto = enhancedImage;
-
-      // 2. Process Background and Clothing with Gemini if needed
       const needsAI = selectedColor !== BackgroundColor.ORIGINAL || selectedClothing !== ClothingOption.NONE;
       
       if (needsAI) {
@@ -95,11 +132,8 @@ const App = () => {
       }
       
       setProcessedImage(finalPhoto);
-      
-      // 3. Generate Sheet
       const sheet = await generatePassportSheet(finalPhoto);
       setFinalSheet(sheet);
-      
       setState(AppState.PREVIEW);
     } catch (err: any) {
         console.error("Processing error:", err);
@@ -143,8 +177,95 @@ const App = () => {
     setSelectedColor(BackgroundColor.WHITE);
   };
 
+  // If still checking authentication status, show nothing or a subtle loader
+  if (isAuthChecking) return null;
+
+  // Login Screen
+  if (!isAuthenticated) {
+    return (
+      <div className="min-h-screen bg-slate-900 flex items-center justify-center p-6 relative overflow-hidden font-sans">
+        {/* Animated background blobs */}
+        <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-blue-600/20 rounded-full blur-[120px] animate-pulse"></div>
+        <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-indigo-600/20 rounded-full blur-[120px] animate-pulse" style={{ animationDelay: '2s' }}></div>
+
+        <div className="w-full max-w-md z-10 animate-fade-in-up">
+          <div className="bg-white/10 backdrop-blur-2xl border border-white/20 p-8 md:p-12 rounded-[2.5rem] shadow-2xl">
+            <div className="flex flex-col items-center mb-10">
+              <div className="w-20 h-20 bg-blue-600 rounded-3xl flex items-center justify-center shadow-2xl mb-6 transform -rotate-6">
+                <Lock size={40} className="text-white" />
+              </div>
+              <h1 className="text-3xl font-black text-white tracking-tight text-center">Art Centre AI Passport System</h1>
+              <p className="text-slate-400 mt-2 text-center font-medium">Please sign in to continue</p>
+            </div>
+
+            <form onSubmit={handleLogin} className="space-y-6">
+              {loginError && (
+                <div className="bg-red-500/20 border border-red-500/50 p-4 rounded-2xl text-red-200 text-sm font-bold flex items-center gap-3 animate-fade-in">
+                  <AlertCircle size={18} /> Invalid email or password
+                </div>
+              )}
+
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Email Address</label>
+                <div className="relative group">
+                  <Mail className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-blue-500 transition-colors" size={20} />
+                  <input 
+                    type="email" 
+                    value={loginEmail}
+                    onChange={(e) => setLoginEmail(e.target.value)}
+                    placeholder="name@example.com"
+                    className="w-full pl-12 pr-4 py-4 bg-white/5 border border-white/10 rounded-2xl text-white placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition-all font-medium"
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Password</label>
+                <div className="relative group">
+                  <Lock className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-blue-500 transition-colors" size={20} />
+                  <input 
+                    type={showPassword ? "text" : "password"}
+                    value={loginPassword}
+                    onChange={(e) => setLoginPassword(e.target.value)}
+                    placeholder="••••••••"
+                    className="w-full pl-12 pr-12 py-4 bg-white/5 border border-white/10 rounded-2xl text-white placeholder-slate-600 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition-all font-medium"
+                    required
+                  />
+                  <button 
+                    type="button" 
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-500 hover:text-white transition-colors"
+                  >
+                    {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                  </button>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3 ml-1 group cursor-pointer" onClick={() => setStaySignedIn(!staySignedIn)}>
+                <div className={`w-6 h-6 rounded-lg border-2 transition-all flex items-center justify-center ${staySignedIn ? 'bg-blue-600 border-blue-600 shadow-[0_0_15px_rgba(37,99,235,0.4)]' : 'border-white/10 group-hover:border-white/20'}`}>
+                  {staySignedIn && <div className="w-2.5 h-2.5 bg-white rounded-sm"></div>}
+                </div>
+                <span className="text-slate-400 text-sm font-bold select-none group-hover:text-slate-300 transition-colors">Stay signed in</span>
+              </div>
+
+              <button 
+                type="submit"
+                className="w-full py-5 bg-blue-600 hover:bg-blue-700 text-white rounded-2xl font-black text-xl shadow-2xl shadow-blue-600/30 transition-all active:scale-[0.98] mt-4"
+              >
+                Sign In
+              </button>
+            </form>
+          </div>
+          <p className="text-center text-slate-600 text-xs font-bold mt-8 uppercase tracking-[0.2em]">Authorized Access Only</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Main App Screen (Existing logic, wrapped)
   return (
-    <div className="min-h-screen bg-slate-50 font-sans text-slate-800">
+    <div className="min-h-screen bg-slate-50 font-sans text-slate-800 animate-fade-in">
       {isProcessing && <AILoader />}
 
       <header className="sticky top-0 z-50 bg-white border-b border-slate-200 shadow-sm">
@@ -156,14 +277,22 @@ const App = () => {
               className="h-10 w-auto object-contain"
             />
           </div>
-          {state !== AppState.UPLOAD && (
+          <div className="flex items-center gap-4">
+            {state !== AppState.UPLOAD && (
+              <button 
+                onClick={handleReset}
+                className="text-sm text-slate-500 hover:text-red-600 font-medium flex items-center gap-1 transition-colors"
+              >
+                <RefreshCw size={14} /> Start Over
+              </button>
+            )}
             <button 
-              onClick={handleReset}
-              className="text-sm text-slate-500 hover:text-red-600 font-medium flex items-center gap-1 transition-colors"
+              onClick={handleLogout}
+              className="text-sm text-slate-500 hover:text-red-600 font-medium flex items-center gap-1 transition-colors border-l border-slate-200 pl-4"
             >
-              <RefreshCw size={14} /> Start Over
+              <LogOut size={14} /> Logout
             </button>
-          )}
+          </div>
         </div>
       </header>
 
@@ -246,8 +375,8 @@ const App = () => {
                      onClick={() => setSelectedColor(BackgroundColor.BLUE)}
                      className={`flex p-5 rounded-2xl border-2 items-center justify-center gap-3 transition-all ${selectedColor === BackgroundColor.BLUE ? 'border-blue-600 bg-blue-50 ring-4 ring-blue-600/10' : 'border-slate-100 bg-slate-50 hover:border-slate-200'}`}
                    >
-                     <div className="w-6 h-6 rounded-full border border-slate-300 bg-[#4b9cd3] shadow-inner"></div>
-                     <span className="font-black text-slate-700">Sky Blue</span>
+                     <div className="w-6 h-6 rounded-full border border-slate-300 bg-[#2296F3] shadow-inner"></div>
+                     <span className="font-black text-slate-700">Deep Blue</span>
                    </button>
 
                    <button
