@@ -12,18 +12,18 @@ const processBackground = async (
   clothing: ClothingOption,
   retryCount = 0
 ): Promise<string> => {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-  const model = "gemini-3-flash-preview";
+  const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+  const model = "gemini-2.5-flash-image";
 
   // Clean base64 string
   const cleanBase64 = imageBase64.replace(/^data:image\/(png|jpeg|jpg|webp);base64,/, "");
 
-  // USE DESCRIPTIVE NAMES ONLY. 
-  // DO NOT pass the raw hex string (e.g. #2296F3) into the text prompt, 
-  // as the model often transcribes it onto the person's shoulder or background.
-  const colorDescription = color === BackgroundColor.WHITE 
-    ? "PURE UNIFORM STUDIO WHITE" 
-    : "PROFESSIONAL DEEP SATURATED ROYAL BLUE";
+  // The prompt must be extremely strict about the background color and subject preservation.
+  const colorDescription = color === BackgroundColor.ORIGINAL 
+    ? "PRESERVE THE ORIGINAL BACKGROUND EXACTLY AS IT IS. Do not change the background." 
+    : color === BackgroundColor.WHITE
+    ? "PURE, PERFECT, UNIFORM STUDIO WHITE (#FFFFFF). It must be 100% white with no grey or off-white tints."
+    : `SOLID, UNIFORM, FLAT BACKGROUND COLOR ${color}. This is a professional document background. It must be a single, solid, uniform shade with NO gradients, NO shadows, and NO textures.`;
   
   let clothingPrompt = "";
   if (clothing !== ClothingOption.NONE) {
@@ -51,14 +51,14 @@ const processBackground = async (
     TASK: Convert this photo into a standard professional passport photograph.
     
     CRITICAL INSTRUCTIONS:
-    1. SUBJECT: Keep the person's face and hair exactly as they are. Do not retouch features.
-    2. BACKGROUND: Replace the background with a flat, SOLID ${colorDescription}. No gradients, no textures.
+    1. SUBJECT: Preserve the person's face, hair, and skin tone EXACTLY as they appear in the provided image. The lighting and color balance on the person must remain identical to the input.
+    2. BACKGROUND: Replace the entire background with a flat, SOLID ${colorDescription}. The background must be perfectly uniform with NO gradients, NO shadows, and NO textures.
     ${clothingPrompt}
     
     STRICT PROHIBITIONS (MANDATORY):
-    - DO NOT include any text, letters, numbers, or hex codes (like #2296F3) on the image.
+    - DO NOT include any text, letters, numbers, or hex codes on the image.
+    - DO NOT write the color code or the name of the color anywhere on the output.
     - DO NOT add any watermarks, labels, or graphical overlays.
-    - DO NOT write the name of the color on the image.
     - The output must be a CLEAN, PURE PHOTOGRAPH ONLY.
   `;
 
@@ -77,6 +77,11 @@ const processBackground = async (
             text: prompt,
           },
         ],
+      },
+      config: {
+        imageConfig: {
+          aspectRatio: "3:4",
+        },
       },
     });
 
