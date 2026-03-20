@@ -6,8 +6,8 @@ export enum AppState {
 }
 
 export enum BackgroundColor {
-  WHITE = 'white',
-  BLUE = '#2296F3', // Deeper, more saturated blue
+  WHITE = '#FFFFFF',
+  BLUE = '#2196F3', // Standard Professional Passport Blue
   ORIGINAL = 'original',
 }
 
