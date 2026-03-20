@@ -12,7 +12,15 @@ const processBackground = async (
   clothing: ClothingOption,
   retryCount = 0
 ): Promise<string> => {
-  const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+  // Try multiple ways to access the key, as different build systems/platforms handle this differently.
+  const apiKey = (process.env as any)?.GEMINI_API_KEY || 
+                 (import.meta as any).env?.VITE_GEMINI_API_KEY || 
+                 (window as any).GEMINI_API_KEY;
+
+  if (!apiKey) {
+    throw new Error("Gemini API Key is missing. Please ensure GEMINI_API_KEY or VITE_GEMINI_API_KEY is set in your environment variables and that you have redeployed the app.");
+  }
+  const ai = new GoogleGenAI({ apiKey });
   const model = "gemini-2.5-flash-image";
 
   // Clean base64 string
