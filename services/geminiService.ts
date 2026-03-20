@@ -13,7 +13,7 @@ const processBackground = async (
   retryCount = 0
 ): Promise<string> => {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-  const model = "gemini-2.5-flash-image";
+  const model = "gemini-3-flash-preview";
 
   // Clean base64 string
   const cleanBase64 = imageBase64.replace(/^data:image\/(png|jpeg|jpg|webp);base64,/, "");
@@ -81,7 +81,7 @@ const processBackground = async (
     });
 
     const candidates = response.candidates;
-    if (candidates && candidates.length > 0) {
+    if (candidates && candidates.length > 0 && candidates[0].content && candidates[0].content.parts) {
       for (const part of candidates[0].content.parts) {
         if (part.inlineData && part.inlineData.data) {
            return `data:image/png;base64,${part.inlineData.data}`;
