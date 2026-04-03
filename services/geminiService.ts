@@ -12,9 +12,10 @@ const processBackground = async (
   clothing: ClothingOption,
   retryCount = 0
 ): Promise<string> => {
-  // Try multiple ways to access the key, as different build systems/platforms handle this differently.
-  const apiKey = (process.env as any)?.GEMINI_API_KEY || 
-                 (import.meta as any).env?.VITE_GEMINI_API_KEY || 
+  // Use the standard Vite way to access environment variables.
+  // The define block in vite.config.ts ensures this is populated from GEMINI_API_KEY or VITE_GEMINI_API_KEY.
+  const apiKey = import.meta.env.VITE_GEMINI_API_KEY || 
+                 (process.env as any)?.GEMINI_API_KEY || 
                  (window as any).GEMINI_API_KEY;
 
   if (!apiKey) {
